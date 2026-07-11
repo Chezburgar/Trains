@@ -1,0 +1,15 @@
+{
+  "resource_pack_name": "trains",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "trains_track": { "textures": "textures/blocks/track" },
+    "trains_station_track": { "textures": "textures/blocks/station_track" },
+    "trains_depot_track": { "textures": "textures/blocks/depot_track" },
+    "trains_platform": { "textures": "textures/blocks/platform" },
+    "trains_screen": { "textures": "textures/blocks/screen_panel" },
+    "trains_escalator_up": { "textures": "textures/blocks/escalator_up" },
+    "trains_escalator_down": { "textures": "textures/blocks/escalator_down" }
+  }
+}

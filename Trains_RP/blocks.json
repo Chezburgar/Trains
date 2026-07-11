@@ -1,0 +1,10 @@
+{
+  "format_version": "1.21.40",
+  "trains:track": { "sound": "stone" },
+  "trains:station_track": { "sound": "stone" },
+  "trains:depot_track": { "sound": "stone" },
+  "trains:platform": { "sound": "stone" },
+  "trains:arrival_screen": { "sound": "glass" },
+  "trains:escalator_up": { "sound": "metal" },
+  "trains:escalator_down": { "sound": "metal" }
+}

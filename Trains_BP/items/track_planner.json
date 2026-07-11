@@ -1,0 +1,17 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:item": {
+    "description": {
+      "identifier": "trains:track_planner",
+      "menu_category": { "category": "equipment" }
+    },
+    "components": {
+      "minecraft:icon": {
+        "textures": { "default": "trains_track_planner" }
+      },
+      "minecraft:display_name": { "value": "Track Planner (lays 3x3 segments)" },
+      "minecraft:max_stack_size": 1,
+      "minecraft:hand_equipped": true
+    }
+  }
+}

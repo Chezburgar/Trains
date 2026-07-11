@@ -1,0 +1,18 @@
+{
+  "format_version": "1.21.40",
+  "minecraft:block": {
+    "description": {
+      "identifier": "trains:platform",
+      "menu_category": { "category": "construction" }
+    },
+    "components": {
+      "minecraft:geometry": "minecraft:geometry.full_block",
+      "minecraft:material_instances": {
+        "*": { "texture": "trains_platform", "render_method": "opaque" }
+      },
+      "minecraft:destructible_by_mining": { "seconds_to_destroy": 0.8 },
+      "minecraft:destructible_by_explosion": { "explosion_resistance": 15 },
+      "minecraft:map_color": "#A8A8A4"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "trains:train",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["train", "inanimate"] },
+      "minecraft:collision_box": { "width": 2.6, "height": 2.4 },
+      "minecraft:physics": { "has_gravity": true, "has_collision": true },
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:knockback_resistance": { "value": 100 },
+      "minecraft:health": { "value": 300, "max": 300 },
+      "minecraft:damage_sensor": {
+        "triggers": [{ "on_damage": {}, "deals_damage": "no", "cause": "all" }]
+      },
+      "minecraft:fire_immune": {},
+      "minecraft:persistent": {},
+      "minecraft:nameable": { "allow_name_tag_renaming": false, "always_show": false },
+      "minecraft:rideable": {
+        "seat_count": 8,
+        "family_types": ["player"],
+        "interact_text": "action.interact.board_train",
+        "pull_in_entities": false,
+        "seats": [
+          { "position": [0.55, 0.8, 1.8] },
+          { "position": [-0.55, 0.8, 1.8] },
+          { "position": [0.55, 0.8, 0.6] },
+          { "position": [-0.55, 0.8, 0.6] },
+          { "position": [0.55, 0.8, -0.6] },
+          { "position": [-0.55, 0.8, -0.6] },
+          { "position": [0.55, 0.8, -1.8] },
+          { "position": [-0.55, 0.8, -1.8] }
+        ]
+      }
+    }
+  }
+}

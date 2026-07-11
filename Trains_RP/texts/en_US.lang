@@ -1,0 +1,11 @@
+tile.trains:track.name=Railway Track
+tile.trains:station_track.name=Station Track (trains stop here)
+tile.trains:depot_track.name=Train Depot (spawns trains)
+tile.trains:platform.name=Platform Block
+tile.trains:arrival_screen.name=Arrival Screen
+tile.trains:escalator_up.name=Escalator (Up)
+tile.trains:escalator_down.name=Escalator (Down)
+item.trains:track_planner.name=Track Planner (lays 3x3 segments)
+entity.trains:train.name=Train
+entity.trains:screen_text.name=Rail Display
+action.interact.board_train=Board Train

@@ -1,0 +1,23 @@
+{
+  "format_version": "1.21.0",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "trains:screen_text",
+      "is_spawnable": false,
+      "is_summonable": true
+    },
+    "components": {
+      "minecraft:type_family": { "family": ["marker", "inanimate"] },
+      "minecraft:collision_box": { "width": 0.1, "height": 0.1 },
+      "minecraft:physics": { "has_gravity": false, "has_collision": false },
+      "minecraft:pushable": { "is_pushable": false, "is_pushable_by_piston": false },
+      "minecraft:knockback_resistance": { "value": 100 },
+      "minecraft:damage_sensor": {
+        "triggers": [{ "on_damage": {}, "deals_damage": "no", "cause": "all" }]
+      },
+      "minecraft:fire_immune": {},
+      "minecraft:persistent": {},
+      "minecraft:nameable": { "allow_name_tag_renaming": false, "always_show": true }
+    }
+  }
+}

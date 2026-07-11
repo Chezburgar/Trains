@@ -1,0 +1,7 @@
+{
+  "resource_pack_name": "trains",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "trains_track_planner": { "textures": "textures/items/track_planner" }
+  }
+}
