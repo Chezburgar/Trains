@@ -32,7 +32,7 @@ Minecraft on mobile). Then enable **both** packs on your world:
 | Arrival Screen | `trains:arrival_screen` | Glowing wall panel with floating live text: arrivals, boarding, next departure |
 | Escalator (Up/Down) | `trains:escalator_up` / `_down` | Carries players up or down when they step on it |
 | Track Planner | `trains:track_planner` | Wand that lays a whole 3×3 track segment (centre rail + platform shoulders) per use |
-| Tunnel Maker | `trains:tunnel_maker` | Bores a 6×6×6 tunnel: digs out solid blocks and patches floor/walls/ceiling with cobblestone wherever there's a gap. Has 2 durability (unlimited in creative) |
+| Tunnel Maker | `trains:tunnel_maker` | Bores a 6×6×6 tunnel: digs out solid blocks, patches floor/walls/ceiling with cobblestone wherever there's a gap, and places torches as it goes. Has 2 durability (unlimited in creative) |
 | Train | `trains:train` | 8-seat rideable train with a walk-in interior (benches, open windows), spawned automatically by depots |
 
 Everything is in the Creative inventory, or use `/give @s trains:track_planner` etc.
@@ -71,10 +71,13 @@ Everything is in the Creative inventory, or use `/give @s trains:track_planner` 
    placing, on a descending diagonal. The steps and handrails visually ascend
    the right way — if they don't, you placed it while facing across the slope.
 7. **Going underground?** Use the **Tunnel Maker** on a wall: each use bores a
-   6-wide, 6-high, 6-deep tunnel in the direction you face — digging out rock
-   and automatically lining the floor, walls and ceiling with cobblestone
-   wherever it would otherwise be open air or water. It has 2 uses in survival
-   (unlimited in creative).
+   6-wide, 6-high, 6-deep tunnel in the direction you face — digging out rock,
+   automatically lining the floor, walls and ceiling with cobblestone wherever
+   it would otherwise be open air or water, and dropping torches so it's lit.
+   It has 2 uses in survival (unlimited in creative).
+8. **Hills are fine.** Track can climb and descend: step the rail up or down
+   **1 block per block forward** (a 45° ramp) and trains ride the slope.
+   Combine with the Tunnel Maker to run subway sections under mountains.
 
 ## Naming stations & lines
 
@@ -113,8 +116,12 @@ Players on the platform see `Train now boarding at Glenmont` / `Doors closing`.
 
 ## Tips & limits
 
-- Lines are **flat** (one Y level). Change levels at stations with escalators.
-- Turns: track corners turn trains automatically; at T-junctions trains bear right.
+- Trains cruise at 12 blocks/sec.
+- Track turns at corners automatically (at T-junctions trains bear right) and
+  climbs/descends 45° ramps (1 up or down per block forward). Turns must be on
+  the flat — finish the ramp, then turn.
+- Editing track only re-surveys lines that pass near the edit; other lines
+  keep running.
 - Trains **do** keep running through unloaded chunks (the simulation is
   chunk-independent once the line is surveyed) — you'll see them arrive on
   time when you get to the platform.

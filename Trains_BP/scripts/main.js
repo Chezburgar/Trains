@@ -14,13 +14,13 @@ import { world, system, BlockPermutation, GameMode, EquipmentSlot } from "@minec
 // ---------------------------------------------------------------------------
 // Tunables
 // ---------------------------------------------------------------------------
-const SPEED = 0.35; // blocks per tick (7 m/s)
+const SPEED = 0.6; // blocks per tick (12 m/s)
 const DWELL_TICKS = 120; // 6s stop at stations
 const DEFAULT_INTERVAL = 1200; // 60s between trains
 const INTERVALS = [600, 1200, 2400, 6000]; // 30s / 60s / 2min / 5min
 const FIRST_SPAWN_DELAY = 100;
 const RETRY_DELAY = 100;
-const MIN_LINE_LEN = 8; // cells of surveyed track before a line runs trains
+const MIN_LINE_LEN = 3; // cells of surveyed track before a line runs trains
 const MAX_LINE_LEN = 4000;
 const MATERIALIZE_R = 64; // player distance that keeps a physical train around
 const MAX_TRAIN_AGE = 72000; // 1h safety net
@@ -37,7 +37,7 @@ const DIRS = {
 const K_DEPOTS = "trains:depots";
 const K_SCREENS = "trains:screens";
 const K_STATIONS = "trains:stations";
-const K_LINES = "trains:lines";
+const K_LINES = "trains:lines2"; // v2: waypoints carry a Y coordinate (slopes)
 const K_VTRAINS = "trains:vtrains";
 
 // ---------------------------------------------------------------------------
@@ -210,15 +210,17 @@ function newLineFor(dep) {
   return {
     k: posKey(dep.d, dep),
     d: dep.d,
-    y: dep.y,
     sx: dep.x,
+    sy: dep.y,
     sz: dep.z,
     cx: dep.x,
+    cy: dep.y,
     cz: dep.z,
     cdx: dep.fx ?? 0,
+    cdy: 0,
     cdz: dep.fz ?? 1,
-    wp: [[dep.x, dep.z]],
-    st: [], // [[distance, x, z], ...]
+    wp: [[dep.x, dep.y, dep.z]],
+    st: [], // [[distance, x, y, z], ...]
     len: 0,
     done: 0,
     loop: 0,
@@ -229,7 +231,9 @@ function newLineFor(dep) {
 function finishLine(line) {
   line.done = 1;
   const last = line.wp[line.wp.length - 1];
-  if (last[0] !== line.cx || last[1] !== line.cz) line.wp.push([line.cx, line.cz]);
+  if (last[0] !== line.cx || last[1] !== line.cy || last[2] !== line.cz) {
+    line.wp.push([line.cx, line.cy, line.cz]);
+  }
   delete line._geom;
   linesDirty = true;
 }
@@ -239,20 +243,29 @@ function surveyStep(line, budget) {
   if (!dim) return;
   while (budget-- > 0 && !line.done) {
     const d = { x: line.cdx, z: line.cdz };
-    const cellT = (ox, oz) => {
-      const b = safeBlock(dim, { x: line.cx + ox, y: line.y, z: line.cz + oz });
+    const cellT = (ox, oy, oz) => {
+      const b = safeBlock(dim, { x: line.cx + ox, y: line.cy + oy, z: line.cz + oz });
       return b === undefined ? null : b.typeId;
     };
-    const sT = cellT(d.x, d.z);
-    if (sT === null) return; // unloaded — resume later
+    // straight ahead: level, then ramp up, then ramp down
+    const sT = cellT(d.x, 0, d.z);
+    const uT = cellT(d.x, 1, d.z);
+    const dT = cellT(d.x, -1, d.z);
+    if (sT === null || uT === null || dT === null) return; // unloaded — resume later
     let nd = null;
-    if (TRACK_TYPES.has(sT)) {
+    let ny = 0;
+    if (TRACK_TYPES.has(sT)) nd = d;
+    else if (TRACK_TYPES.has(uT)) {
       nd = d;
+      ny = 1;
+    } else if (TRACK_TYPES.has(dT)) {
+      nd = d;
+      ny = -1;
     } else {
       const L = leftOf(d);
       const R = rightOf(d);
-      const lT = cellT(L.x, L.z);
-      const rT = cellT(R.x, R.z);
+      const lT = cellT(L.x, 0, L.z);
+      const rT = cellT(R.x, 0, R.z);
       if (lT === null || rT === null) return; // unloaded — resume later
       const lOk = TRACK_TYPES.has(lT);
       const rOk = TRACK_TYPES.has(rT);
@@ -262,20 +275,24 @@ function surveyStep(line, budget) {
       finishLine(line); // dead end terminus
       return;
     }
-    if (nd.x !== d.x || nd.z !== d.z) line.wp.push([line.cx, line.cz]);
+    if (nd.x !== line.cdx || nd.z !== line.cdz || ny !== line.cdy) {
+      line.wp.push([line.cx, line.cy, line.cz]);
+    }
     line.cx += nd.x;
+    line.cy += ny;
     line.cz += nd.z;
     line.cdx = nd.x;
+    line.cdy = ny;
     line.cdz = nd.z;
     line.len++;
     linesDirty = true;
-    if (line.cx === line.sx && line.cz === line.sz) {
+    if (line.cx === line.sx && line.cy === line.sy && line.cz === line.sz) {
       line.loop = 1;
       finishLine(line);
       return;
     }
-    const t = cellT(0, 0);
-    if (t === "trains:station_track") line.st.push([line.len, line.cx, line.cz]);
+    const t = cellT(0, 0, 0);
+    if (t === "trains:station_track") line.st.push([line.len, line.cx, line.cy, line.cz]);
     else if (t === "trains:depot_track") {
       line.endDepot = 1;
       finishLine(line);
@@ -290,17 +307,39 @@ function surveyStep(line, budget) {
 
 function resetLine(dep) {
   const line = newLineFor(dep);
+  line._resetAt = system.currentTick;
   lineCache.set(line.k, line);
   linesDirty = true;
   return line;
 }
 
-// Any track edit may have rerouted lines: re-survey everything in that dimension.
-// Running trains keep their old path object until they finish their trip.
-function invalidateLines(dimId) {
+// True if (x,y,z) lies on or right next to the line's surveyed path.
+function lineTouches(line, x, y, z) {
+  const near = (ax, ay, az, bx, by, bz) => {
+    const minx = Math.min(ax, bx) - 2, maxx = Math.max(ax, bx) + 2;
+    const minz = Math.min(az, bz) - 2, maxz = Math.max(az, bz) + 2;
+    const miny = Math.min(ay, by) - 2, maxy = Math.max(ay, by) + 2;
+    return x >= minx && x <= maxx && z >= minz && z <= maxz && y >= miny && y <= maxy;
+  };
+  for (let i = 0; i + 1 < line.wp.length; i++) {
+    const [ax, ay, az] = line.wp[i];
+    const [bx, by, bz] = line.wp[i + 1];
+    if (near(ax, ay, az, bx, by, bz)) return true;
+  }
+  const last = line.wp[line.wp.length - 1];
+  if (near(last[0], last[1], last[2], line.cx, line.cy, line.cz)) return true;
+  return near(line.sx, line.sy, line.sz, line.sx, line.sy, line.sz);
+}
+
+// A track edit only re-surveys lines whose path runs near the edited block,
+// so unrelated lines keep running undisturbed. Running trains keep their old
+// path object until they finish their trip.
+function invalidateLines(dimId, loc) {
   const depots = loadReg(K_DEPOTS);
   for (const dep of depots) {
     if (dep.d !== dimId) continue;
+    const line = lineCache.get(posKey(dep.d, dep));
+    if (line && loc && line.len > 0 && !lineTouches(line, loc.x, loc.y, loc.z)) continue;
     resetLine(dep);
   }
 }
@@ -310,10 +349,19 @@ function geomOf(line) {
   const segs = [];
   let total = 0;
   for (let i = 0; i + 1 < line.wp.length; i++) {
-    const [ax, az] = line.wp[i];
-    const [bx, bz] = line.wp[i + 1];
-    const l = Math.abs(bx - ax) + Math.abs(bz - az);
-    segs.push({ ax, az, dx: Math.sign(bx - ax), dz: Math.sign(bz - az), l, start: total });
+    const [ax, ay, az] = line.wp[i];
+    const [bx, by, bz] = line.wp[i + 1];
+    const l = Math.max(1, Math.abs(bx - ax) + Math.abs(bz - az));
+    segs.push({
+      ax,
+      ay,
+      az,
+      dx: Math.sign(bx - ax),
+      dy: (by - ay) / l,
+      dz: Math.sign(bz - az),
+      l,
+      start: total
+    });
     total += l;
   }
   line._geom = { segs, total };
@@ -327,17 +375,23 @@ function posAt(line, p) {
     const s = g.segs[i];
     if (p <= s.start + s.l || i === g.segs.length - 1) {
       const t = p - s.start;
-      return { x: s.ax + 0.5 + s.dx * t, z: s.az + 0.5 + s.dz * t, dx: s.dx, dz: s.dz };
+      return {
+        x: s.ax + 0.5 + s.dx * t,
+        y: s.ay + s.dy * t,
+        z: s.az + 0.5 + s.dz * t,
+        dx: s.dx,
+        dz: s.dz
+      };
     }
   }
-  return { x: line.sx + 0.5, z: line.sz + 0.5, dx: line.cdx || 1, dz: line.cdz };
+  return { x: line.sx + 0.5, y: line.sy, z: line.sz + 0.5, dx: line.cdx || 1, dz: line.cdz };
 }
 
 // The last station on the line — every train's final stop / destination.
 function destOf(line) {
   if (line.st.length === 0) return undefined;
   const s = line.st[line.st.length - 1];
-  return stationName(line.d, s[1], line.y, s[2]);
+  return stationName(line.d, s[1], s[2], s[3]);
 }
 
 // ---------------------------------------------------------------------------
@@ -366,7 +420,7 @@ function calloutRiders(v, msg) {
 
 function simPosOf(v) {
   const g = posAt(v._line, v.p);
-  return { x: g.x, y: v._line.y + 0.3, z: g.z, dx: g.dx, dz: g.dz };
+  return { x: g.x, y: g.y + 0.3, z: g.z, dx: g.dx, dz: g.dz };
 }
 
 function removeVTrain(v) {
@@ -399,7 +453,7 @@ function spawnVTrain(dep, line, tick) {
     const dest = destOf(line);
     const lname = dep.n ? `§e${dep.n}§b ` : "";
     const toward = dest ? ` toward §e${dest}` : "";
-    const loc = { x: line.sx + 0.5, y: line.y + 1, z: line.sz + 0.5 };
+    const loc = { x: line.sx + 0.5, y: line.sy + 1, z: line.sz + 0.5 };
     announce(dim, loc, 24, `§bThe ${lname}train${toward} is now departing`);
     try {
       dim.playSound("beacon.activate", loc);
@@ -412,7 +466,7 @@ function announceDeparture(v) {
   const line = v._line;
   if (v.ns < line.st.length) {
     const s = line.st[v.ns];
-    const name = stationName(line.d, s[1], line.y, s[2]);
+    const name = stationName(line.d, s[1], s[2], s[3]);
     const final = v.ns === line.st.length - 1;
     calloutRiders(v, final ? `§6🚉 Next and final station: §e${name}` : `§6🚉 Next station: §e${name}`);
   } else {
@@ -462,7 +516,7 @@ function tickVTrain(v, tick) {
     if (v.p >= s[0]) {
       v.p = s[0];
       v.dw = DWELL_TICKS;
-      const name = stationName(line.d, s[1], line.y, s[2]);
+      const name = stationName(line.d, s[1], s[2], s[3]);
       const final = v.ns === line.st.length - 1;
       if (final) v.fin = 1; // delete after this stop instead of continuing
       calloutRiders(
@@ -548,14 +602,17 @@ function syncEntity(v) {
     const el = e.location;
     const heading = { x: sp.dx, z: sp.dz };
     const dx = sp.x - el.x;
+    const dy = sp.y - el.y;
     const dz = sp.z - el.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > 4 || Math.abs(sp.y - el.y) > 3) {
+    if (dist > 4 || Math.abs(dy) > 3) {
       e.teleport({ x: sp.x, y: sp.y, z: sp.z }, { rotation: { x: 0, y: yawOf(heading) } });
     } else {
-      const cap = dist > 0.6 ? 0.6 / dist : 1;
+      const cap = dist > 1.2 ? 1.2 / dist : 1;
+      // lift against gravity on ramps; stay grounded on the flat
+      const vy = Math.abs(dy) > 0.3 ? Math.max(-0.7, Math.min(0.7, dy)) + 0.08 : 0;
       e.clearVelocity();
-      e.applyImpulse({ x: dx * cap, y: 0, z: dz * cap });
+      e.applyImpulse({ x: dx * cap, y: vy, z: dz * cap });
     }
     if (heading.x !== 0 || heading.z !== 0) e.setRotation({ x: 0, y: yawOf(heading) });
   } catch {}
@@ -654,14 +711,24 @@ function tickDepots(tick) {
       continue;
     }
     keep.push(dep);
-    if (b && dep.fx === undefined) {
+    if (b) {
+      // ALWAYS trust the live block for the departure direction — stale saved
+      // facings (e.g. from before a direction fix) silently killed spawning.
       const f = travelDirOf(b);
-      dep.fx = f.x;
-      dep.fz = f.z;
-      dirty = true;
+      if (dep.fx !== f.x || dep.fz !== f.z) {
+        dep.fx = f.x;
+        dep.fz = f.z;
+        dirty = true;
+        resetLine(dep);
+      }
     }
     let line = lineCache.get(key);
     if (!line) line = resetLine(dep);
+    // self-heal: a finished survey that found no usable track (line built after
+    // the depot, or a bad facing) rescans automatically while the depot is loaded
+    if (b && line.done && line.len < MIN_LINE_LEN && tick - (line._resetAt ?? 0) > 200) {
+      line = resetLine(dep);
+    }
 
     let next = depotNext.get(key);
     if (next === undefined) {
@@ -673,7 +740,7 @@ function tickDepots(tick) {
       depotNext.set(key, tick + RETRY_DELAY);
       continue;
     }
-    const blocked = vtrains.some((v) => v.k === key && v.p < 6);
+    const blocked = vtrains.some((v) => v.k === key && v.p < 4);
     if (blocked) {
       depotNext.set(key, tick + RETRY_DELAY);
       continue;
@@ -727,7 +794,12 @@ function depotInteract(player, block) {
 // ---------------------------------------------------------------------------
 // Naming (renamed Name Tag on a station or depot, or /scriptevent)
 // ---------------------------------------------------------------------------
+const nameCooldown = new Map();
+
 function applyName(player, block, name) {
+  const tick = system.currentTick;
+  if ((nameCooldown.get(player.id) ?? -10) > tick - 4) return true; // both events can fire per tap
+  nameCooldown.set(player.id, tick);
   const dimId = block.dimension.id;
   const l = block.location;
   if (block.typeId === "trains:station_track") {
@@ -761,9 +833,9 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
       p.sendMessage("§7Usage: /scriptevent trains:name Glenmont (near a station or depot)");
       return;
     }
-    // nearest registered station or depot within 8 blocks
+    // nearest registered station or depot within 12 blocks
     const pl = p.location;
-    let best, bestD = 8;
+    let best, bestD = 12;
     for (const s of stations) {
       if (s.d !== p.dimension.id) continue;
       const d = Math.hypot(s.x + 0.5 - pl.x, s.z + 0.5 - pl.z);
@@ -775,7 +847,9 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
       if (d < bestD) { bestD = d; best = { kind: "depot", rec: dep }; }
     }
     if (!best) {
-      p.sendMessage("§7No station or depot within 8 blocks.");
+      p.sendMessage(
+        "§7No registered station or depot within 12 blocks. Tap the station/depot block once (registers it), then retry."
+      );
     } else if (best.kind === "station") {
       best.rec.n = name;
       stationsDirty = true;
@@ -794,7 +868,7 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
     if (p?.typeId === "minecraft:player") p.sendMessage("§7All trains removed.");
   } else if (ev.id === "trains:resurvey") {
     if (!p || p.typeId !== "minecraft:player") return;
-    invalidateLines(p.dimension.id);
+    invalidateLines(p.dimension.id); // no location = reset every line
     p.sendMessage("§7All lines in this dimension are being re-surveyed.");
   }
 });
@@ -1004,7 +1078,7 @@ function tryPlaceSegment(player, base) {
     }
   }
   if (placed > 0) {
-    invalidateLines(dim.id);
+    invalidateLines(dim.id, { x: bl.x, y, z: bl.z });
     player.onScreenDisplay.setActionBar(`§aTrack segment laid (3x3, heading ${cardinalOf(d)})`);
     try {
       dim.playSound("dig.stone", { x: bl.x + 0.5, y: y + 0.5, z: bl.z + 0.5 });
@@ -1090,6 +1164,22 @@ function boreTunnel(player, base) {
       const cz = bl.z + d.z * f + perp.z * s;
       for (let dy = 0; dy <= 7; dy++) lineWith({ x: cx, y: bl.y + dy, z: cz });
     }
+    // lighting: a torch on the floor against each wall, midway through the bore
+    if (f === 3) {
+      for (const s of [-2, 3]) {
+        const b = safeBlock(dim, {
+          x: bl.x + d.x * f + perp.x * s,
+          y: bl.y + 1,
+          z: bl.z + d.z * f + perp.z * s
+        });
+        if (b && b.isAir) {
+          try {
+            b.setType("minecraft:torch");
+            changed++;
+          } catch {}
+        }
+      }
+    }
   }
 
   if (changed > 0) {
@@ -1109,7 +1199,7 @@ world.afterEvents.playerPlaceBlock.subscribe((ev) => {
   if (t === "trains:depot_track") registerDepot(ev.block);
   else if (t === "trains:arrival_screen") registerScreen(ev.block);
   else if (t === "trains:station_track") registerStation(ev.block);
-  if (TRACK_TYPES.has(t)) invalidateLines(ev.block.dimension.id);
+  if (TRACK_TYPES.has(t)) invalidateLines(ev.block.dimension.id, ev.block.location);
 });
 
 world.afterEvents.playerBreakBlock.subscribe((ev) => {
@@ -1117,7 +1207,7 @@ world.afterEvents.playerBreakBlock.subscribe((ev) => {
   if (t === "trains:depot_track") unregisterDepot(ev.dimension.id, ev.block.location);
   else if (t === "trains:arrival_screen") unregisterScreen(ev.dimension.id, ev.block.location);
   else if (t === "trains:station_track") unregisterStation(ev.dimension.id, ev.block.location);
-  if (TRACK_TYPES.has(t)) invalidateLines(ev.dimension.id);
+  if (TRACK_TYPES.has(t)) invalidateLines(ev.dimension.id, ev.block.location);
 });
 
 world.afterEvents.playerInteractWithBlock.subscribe((ev) => {
@@ -1157,13 +1247,21 @@ world.afterEvents.playerInteractWithBlock.subscribe((ev) => {
 
 world.afterEvents.itemUse.subscribe((ev) => {
   const t = ev.itemStack?.typeId;
-  if (t !== "trains:track_planner" && t !== "trains:tunnel_maker") return;
+  if (t !== "trains:track_planner" && t !== "trains:tunnel_maker" && t !== "minecraft:name_tag") return;
   const p = ev.source;
   if (!p || p.typeId !== "minecraft:player") return;
   const hit = p.getBlockFromViewDirection({ maxDistance: 12 });
   if (!hit?.block) return;
   if (t === "trains:track_planner") tryPlaceSegment(p, hit.block);
-  else boreTunnel(p, hit.block);
+  else if (t === "trains:tunnel_maker") boreTunnel(p, hit.block);
+  else {
+    // second path for naming — some platforms deliver name-tag taps here
+    const b = hit.block;
+    if (b.typeId !== "trains:station_track" && b.typeId !== "trains:depot_track") return;
+    const name = ev.itemStack.nameTag?.trim();
+    if (name) applyName(p, b, name);
+    else p.sendMessage("§7Rename the Name Tag on an anvil first, then tap the block with it.");
+  }
 });
 
 // ---------------------------------------------------------------------------
