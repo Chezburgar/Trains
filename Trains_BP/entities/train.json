@@ -25,14 +25,14 @@
         "interact_text": "action.interact.board_train",
         "pull_in_entities": false,
         "seats": [
-          { "position": [0.55, 0.8, 1.8] },
-          { "position": [-0.55, 0.8, 1.8] },
-          { "position": [0.55, 0.8, 0.6] },
-          { "position": [-0.55, 0.8, 0.6] },
-          { "position": [0.55, 0.8, -0.6] },
-          { "position": [-0.55, 0.8, -0.6] },
-          { "position": [0.55, 0.8, -1.8] },
-          { "position": [-0.55, 0.8, -1.8] }
+          { "position": [0.68, 0.6, 1.8] },
+          { "position": [-0.68, 0.6, 1.8] },
+          { "position": [0.68, 0.6, 0.6] },
+          { "position": [-0.68, 0.6, 0.6] },
+          { "position": [0.68, 0.6, -0.6] },
+          { "position": [-0.68, 0.6, -0.6] },
+          { "position": [0.68, 0.6, -1.8] },
+          { "position": [-0.68, 0.6, -1.8] }
         ]
       }
     }

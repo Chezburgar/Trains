@@ -136,75 +136,123 @@ def tex_screen():
 
 
 def tex_escalator(name, arrow_up):
-    px = canvas(16, 16)
-    jitter(px, 0, 0, 16, 16, (138, 142, 148, 255), 6)
-    for y in (1, 4, 7, 10, 13):  # step ribs
-        for x in range(16):
-            px[y][x] = (92, 96, 104, 255)
-    for y in range(16):  # side rails
-        px[y][0] = (70, 74, 82, 255)
-        px[y][15] = (70, 74, 82, 255)
+    """32x32 atlas: (0,0)16x16 step top w/ arrow; (16,0)16x8 step riser ribs;
+    (0,16)16x14 balustrade panel; (16,16)8x4 handrail rubber; (24,16)8x8 dark."""
+    px = canvas(32, 32)
+    # step top: brushed steel with lengthwise grooves
+    jitter(px, 0, 0, 16, 16, (146, 150, 156, 255), 5)
+    for x in range(1, 16, 2):
+        for y in range(16):
+            px[y][x] = (108, 112, 120, 255)
+    # arrow shows travel: up-escalator carries toward +v, down toward -v
     c = (44, 208, 84, 255) if arrow_up else (240, 150, 40, 255)
-    if arrow_up:
+    if arrow_up:  # points down-image (+v = uphill direction)
+        for y in range(3, 9):
+            px[y][7] = c
+            px[y][8] = c
+        for i in range(4):
+            for x in range(4 + i, 12 - i):
+                px[8 + i][x] = c
+    else:  # points up-image (-v = downhill direction)
         for i in range(4):
             for x in range(7 - i, 9 + i):
                 px[3 + i][x] = c
         for y in range(7, 13):
             px[y][7] = c
             px[y][8] = c
-    else:
-        for y in range(3, 9):
-            px[y][7] = c
-            px[y][8] = c
-        for i in range(4):
-            for x in range(4 + i, 12 - i):
-                px[9 + i][x] = c
+    # step riser: horizontal ribs
+    jitter(px, 16, 0, 32, 8, (120, 124, 132, 255), 4)
+    for y in (1, 3, 5):
+        for x in range(16, 32):
+            px[y][x] = (86, 90, 98, 255)
+    # balustrade panel: smoked glass look with metal border
+    fill(px, 0, 16, 16, 30, (96, 104, 116, 255))
+    fill(px, 1, 17, 15, 29, (128, 140, 156, 255))
+    fill(px, 2, 18, 14, 28, (110, 122, 140, 255))
+    # handrail rubber
+    fill(px, 16, 16, 24, 20, (28, 28, 32, 255))
+    for x in range(16, 24, 2):
+        px[17][x] = (48, 48, 54, 255)
+    # dark metal
+    jitter(px, 24, 16, 32, 24, (58, 60, 66, 255), 4)
     write_png(os.path.join(RP, "textures/blocks/%s.png" % name), px)
 
 
 # ----------------------------------------------------------------- train ----
 
 def tex_train():
+    """Atlas for the hollow train model:
+    A (0,0)84x8 lower side band | B (0,10)84x8 upper side band
+    C (86,0)6x10 window pillar  | D (96,0)24x24 interior floor
+    E (96,26)24x24 light metal  | F (96,64)24x24 dark underframe
+    G (64,64)32x48 roof top     | H (0,32)36x24 end wall
+    I (48,32)8x8 bench"""
     px = canvas(128, 128)
     BLUE = (44, 84, 138, 255)
-    LT = (200, 204, 208, 255)
+    DBLUE = (34, 66, 110, 255)
     WHITE = (236, 238, 240, 255)
+    LT = (200, 204, 208, 255)
     SKIRT = (35, 38, 44, 255)
-    SILVER = (168, 172, 178, 255)
-    GLASS = (18, 26, 36, 255)
-    CLEAR = (0, 0, 0, 0)
+    SILVER = (172, 176, 182, 255)
+    GLASS = (16, 24, 34, 255)
+    YELLOW = (250, 224, 90, 255)
 
-    # --- side band (0,0)-(96,28): windows are fully transparent ---
-    fill(px, 0, 0, 96, 3, LT)
-    fill(px, 0, 3, 96, 20, BLUE)
-    fill(px, 0, 20, 96, 23, WHITE)
-    fill(px, 0, 23, 96, 28, SKIRT)
-    for wx in (4, 19, 34, 49, 64, 79):
-        fill(px, wx, 5, wx + 12, 17, SILVER)   # frame
-        fill(px, wx + 1, 6, wx + 11, 16, CLEAR)  # open window
+    # A: lower side band — white stripe, blue livery, dark skirt
+    fill(px, 0, 0, 84, 2, WHITE)
+    fill(px, 0, 2, 84, 6, BLUE)
+    for x in range(20, 84, 21):  # door seams
+        for y in range(2, 6):
+            px[y][x] = DBLUE
+    fill(px, 0, 6, 84, 8, SKIRT)
 
-    # --- end face (0,32)-(36,60) ---
-    fill(px, 0, 32, 36, 35, LT)
-    fill(px, 0, 35, 36, 52, BLUE)
-    fill(px, 0, 52, 36, 55, WHITE)
-    fill(px, 0, 55, 36, 60, SKIRT)
-    fill(px, 3, 35, 33, 45, SILVER)
-    fill(px, 4, 36, 32, 44, GLASS)
-    fill(px, 3, 53, 7, 57, (250, 224, 90, 255))    # headlights
-    fill(px, 29, 53, 33, 57, (250, 224, 90, 255))
-    fill(px, 15, 56, 21, 60, (24, 26, 30, 255))    # coupler shadow
+    # B: upper side band — roofline trim + blue with destination dashes
+    fill(px, 0, 10, 84, 12, LT)
+    fill(px, 0, 12, 84, 18, BLUE)
+    for x0 in (8, 36, 64):
+        fill(px, x0, 14, x0 + 12, 16, (150, 200, 255, 255))
 
-    # --- roof metal (96,0)-(120,24) ---
-    jitter(px, 96, 0, 120, 24, (150, 154, 158, 255), 5)
+    # C: window pillar — brushed silver with darker edges
+    fill(px, 86, 0, 92, 10, SILVER)
+    for y in range(10):
+        px[y][86] = (128, 132, 140, 255)
+        px[y][91] = (128, 132, 140, 255)
 
-    # --- dark underframe (96,64)-(120,88) ---
+    # D: interior floor — light grey with darker walk strip
+    jitter(px, 96, 0, 120, 24, (152, 150, 146, 255), 5)
+    jitter(px, 104, 0, 112, 24, (128, 126, 122, 255), 4)
+
+    # E: light metal (roof sides, ceiling, interior end walls)
+    jitter(px, 96, 26, 120, 50, (168, 172, 176, 255), 4)
+
+    # F: dark underframe
     jitter(px, 96, 64, 120, 88, (38, 40, 44, 255), 4)
 
-    # --- roof top with vents (64,64)-(96,112) ---
+    # G: roof top with AC vents
     jitter(px, 64, 64, 96, 112, (134, 138, 144, 255), 4)
     for vy in (68, 84, 98):
         fill(px, 68, vy, 92, vy + 6, (102, 106, 112, 255))
         fill(px, 69, vy + 1, 91, vy + 5, (114, 118, 124, 255))
+
+    # H: end wall — destination sign, windshield, headlights
+    fill(px, 0, 32, 36, 56, BLUE)
+    fill(px, 9, 33, 27, 36, (10, 14, 20, 255))       # destination screen
+    fill(px, 11, 34, 17, 35, (70, 230, 110, 255))    # green text
+    fill(px, 19, 34, 25, 35, (70, 230, 110, 255))
+    fill(px, 3, 37, 33, 47, SILVER)                  # windshield frame
+    fill(px, 4, 38, 32, 46, GLASS)
+    fill(px, 6, 39, 30, 41, (40, 60, 84, 255))       # glass reflection
+    fill(px, 0, 48, 36, 50, WHITE)                   # stripe
+    fill(px, 2, 51, 6, 54, YELLOW)                   # headlights
+    fill(px, 30, 51, 34, 54, YELLOW)
+    px[54][3] = (220, 60, 50, 255)                   # red marker lights
+    px[54][32] = (220, 60, 50, 255)
+    fill(px, 0, 55, 36, 56, SKIRT)
+
+    # I: bench — blue plastic
+    fill(px, 48, 32, 56, 40, (60, 100, 170, 255))
+    fill(px, 48, 32, 56, 33, (96, 140, 210, 255))
+    for y in range(32, 40):
+        px[y][48] = (40, 72, 130, 255)
 
     write_png(os.path.join(RP, "textures/entity/train.png"), px)
 
@@ -233,6 +281,34 @@ def tex_wand():
     for x in (10, 12, 14):
         px[13][x] = (92, 70, 48, 255)
     write_png(os.path.join(RP, "textures/items/track_planner.png"), px)
+
+
+def tex_tunnel_maker():
+    px = canvas(16, 16)
+    STEEL = (150, 154, 162, 255)
+    DARK = (90, 94, 102, 255)
+    YELLOW = (230, 180, 40, 255)
+    # drill body: yellow housing bottom-left
+    fill(px, 1, 10, 7, 15, YELLOW)
+    fill(px, 2, 11, 6, 14, (250, 205, 70, 255))
+    px[15][2] = DARK  # grip
+    px[15][5] = DARK
+    # drill shaft to top-right
+    for i in range(7):
+        x, y = 6 + i, 10 - i
+        px[y][x] = STEEL
+        px[y + 1][x] = DARK
+    # cone bit
+    px[3][13] = STEEL
+    px[2][13] = STEEL
+    px[3][14] = DARK
+    px[1][14] = (210, 214, 220, 255)
+    px[2][14] = STEEL
+    px[1][15] = (240, 244, 248, 255)
+    # rock chips
+    for cx, cy in ((11, 1), (14, 5), (9, 3)):
+        px[cy][cx] = (128, 128, 128, 255)
+    write_png(os.path.join(RP, "textures/items/tunnel_maker.png"), px)
 
 
 # ------------------------------------------------------------------ icon ----
@@ -269,5 +345,6 @@ if __name__ == "__main__":
     tex_train()
     tex_blank()
     tex_wand()
+    tex_tunnel_maker()
     pack_icon(os.path.join(BP, "pack_icon.png"))
     pack_icon(os.path.join(RP, "pack_icon.png"))

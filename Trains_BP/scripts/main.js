@@ -9,7 +9,7 @@
 // Stations and lines can be named with a renamed Name Tag; trains do
 // conductor callouts ("Next station: Glenmont") to riders.
 
-import { world, system, BlockPermutation } from "@minecraft/server";
+import { world, system, BlockPermutation, GameMode, EquipmentSlot } from "@minecraft/server";
 
 // ---------------------------------------------------------------------------
 // Tunables
@@ -117,11 +117,11 @@ function chatNear(dim, loc, range, msg) {
   } catch {}
 }
 
-// The cardinal_direction state points AT the player who placed the block
-// (y_rotation_offset 180), so travel/facing directions are its opposite.
+// The cardinal_direction state stores the direction the player was facing
+// when the block was placed, so that IS the travel/departure direction.
 function travelDirOf(block) {
   const st = block.permutation.getState("minecraft:cardinal_direction") ?? "north";
-  return opposite(DIRS[st] ?? DIRS.north);
+  return DIRS[st] ?? DIRS.north;
 }
 
 // ---------------------------------------------------------------------------
@@ -1013,6 +1013,95 @@ function tryPlaceSegment(player, base) {
 }
 
 // ---------------------------------------------------------------------------
+// Tunnel maker: bores a 6x6x6 tunnel — digs solids out of the interior and
+// lines floor/walls/ceiling with cobblestone wherever there's a gap.
+// ---------------------------------------------------------------------------
+function consumeDurability(player, itemType) {
+  try {
+    if (player.getGameMode() === GameMode.Creative) return;
+    const eq = player.getComponent("minecraft:equippable");
+    const item = eq?.getEquipment(EquipmentSlot.Mainhand);
+    if (!item || item.typeId !== itemType) return;
+    const dur = item.getComponent("minecraft:durability");
+    if (!dur) return;
+    if (dur.damage + 1 >= dur.maxDurability) {
+      eq.setEquipment(EquipmentSlot.Mainhand, undefined);
+      try {
+        player.dimension.playSound("random.break", player.location);
+      } catch {}
+    } else {
+      dur.damage += 1;
+      eq.setEquipment(EquipmentSlot.Mainhand, item);
+    }
+  } catch {}
+}
+
+const TUNNEL_PROTECTED = new Set([
+  ...TRACK_TYPES,
+  "trains:platform",
+  "trains:arrival_screen",
+  "trains:escalator_up",
+  "trains:escalator_down",
+  "minecraft:bedrock"
+]);
+
+function boreTunnel(player, base) {
+  const tick = system.currentTick;
+  if ((wandCooldown.get(player.id) ?? -10) > tick - 4) return;
+  wandCooldown.set(player.id, tick);
+
+  const dim = player.dimension;
+  const d = facingDir(player);
+  const perp = { x: -d.z, z: d.x };
+  const bl = base.location;
+  let changed = 0;
+
+  const lineWith = (pos) => {
+    const b = safeBlock(dim, pos);
+    if (b && (b.isAir || b.isLiquid)) {
+      try {
+        b.setType("minecraft:cobblestone");
+        changed++;
+      } catch {}
+    }
+  };
+
+  for (let f = 1; f <= 6; f++) {
+    for (let s = -2; s <= 3; s++) {
+      const cx = bl.x + d.x * f + perp.x * s;
+      const cz = bl.z + d.z * f + perp.z * s;
+      // interior 6 wide x 6 high: dig out anything solid (except railway gear)
+      for (let dy = 1; dy <= 6; dy++) {
+        const b = safeBlock(dim, { x: cx, y: bl.y + dy, z: cz });
+        if (b && !b.isAir && !TUNNEL_PROTECTED.has(b.typeId)) {
+          try {
+            b.setType("minecraft:air");
+            changed++;
+          } catch {}
+        }
+      }
+      // floor & ceiling: patch gaps with cobblestone
+      lineWith({ x: cx, y: bl.y, z: cz });
+      lineWith({ x: cx, y: bl.y + 7, z: cz });
+    }
+    // side walls: patch gaps with cobblestone
+    for (const s of [-3, 4]) {
+      const cx = bl.x + d.x * f + perp.x * s;
+      const cz = bl.z + d.z * f + perp.z * s;
+      for (let dy = 0; dy <= 7; dy++) lineWith({ x: cx, y: bl.y + dy, z: cz });
+    }
+  }
+
+  if (changed > 0) {
+    player.onScreenDisplay.setActionBar("§aTunnel bored (6x6, 6 deep)");
+    try {
+      dim.playSound("dig.stone", { x: bl.x + 0.5, y: bl.y + 1.5, z: bl.z + 0.5 });
+    } catch {}
+    consumeDurability(player, "trains:tunnel_maker");
+  }
+}
+
+// ---------------------------------------------------------------------------
 // World events
 // ---------------------------------------------------------------------------
 world.afterEvents.playerPlaceBlock.subscribe((ev) => {
@@ -1049,6 +1138,10 @@ world.afterEvents.playerInteractWithBlock.subscribe((ev) => {
     tryPlaceSegment(player, block);
     return;
   }
+  if (item?.typeId === "trains:tunnel_maker") {
+    boreTunnel(player, block);
+    return;
+  }
   if (block.typeId === "trains:depot_track") {
     depotInteract(player, block);
   } else if (block.typeId === "trains:arrival_screen") {
@@ -1063,11 +1156,14 @@ world.afterEvents.playerInteractWithBlock.subscribe((ev) => {
 });
 
 world.afterEvents.itemUse.subscribe((ev) => {
-  if (ev.itemStack?.typeId !== "trains:track_planner") return;
+  const t = ev.itemStack?.typeId;
+  if (t !== "trains:track_planner" && t !== "trains:tunnel_maker") return;
   const p = ev.source;
   if (!p || p.typeId !== "minecraft:player") return;
   const hit = p.getBlockFromViewDirection({ maxDistance: 12 });
-  if (hit?.block) tryPlaceSegment(p, hit.block);
+  if (!hit?.block) return;
+  if (t === "trains:track_planner") tryPlaceSegment(p, hit.block);
+  else boreTunnel(p, hit.block);
 });
 
 // ---------------------------------------------------------------------------

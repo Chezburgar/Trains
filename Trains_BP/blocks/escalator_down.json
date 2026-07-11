@@ -36,5 +36,6 @@
         "components": { "minecraft:transformation": { "rotation": [0, 270, 0] } }
       }
     ]
+
   }
 }

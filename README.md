@@ -32,7 +32,8 @@ Minecraft on mobile). Then enable **both** packs on your world:
 | Arrival Screen | `trains:arrival_screen` | Glowing wall panel with floating live text: arrivals, boarding, next departure |
 | Escalator (Up/Down) | `trains:escalator_up` / `_down` | Carries players up or down when they step on it |
 | Track Planner | `trains:track_planner` | Wand that lays a whole 3×3 track segment (centre rail + platform shoulders) per use |
-| Train | `trains:train` | 8-seat rideable train, spawned automatically by depots |
+| Tunnel Maker | `trains:tunnel_maker` | Bores a 6×6×6 tunnel: digs out solid blocks and patches floor/walls/ceiling with cobblestone wherever there's a gap. Has 2 durability (unlimited in creative) |
+| Train | `trains:train` | 8-seat rideable train with a walk-in interior (benches, open windows), spawned automatically by depots |
 
 Everything is in the Creative inventory, or use `/give @s trains:track_planner` etc.
 
@@ -63,10 +64,17 @@ Everything is in the Creative inventory, or use `/give @s trains:track_planner` 
 5. **Hang arrival screens.** Place an **Arrival Screen** on a wall facing the
    platform. It shows floating live text: the station's name, `Train arriving
    in ~12s`, `>> NOW BOARDING <<`, and the next scheduled departure.
-6. **Add escalators.** Place **Escalator (Up)** blocks in an ascending diagonal
-   line (each one a block higher, in the direction you're facing while placing);
-   stepping on them carries you up. Use **Escalator (Down)** on the same slope
-   shape for the way down.
+6. **Add escalators.** Face the direction you want to travel, then place
+   **Escalator (Up)** blocks in an ascending diagonal line (each one a block
+   higher, going away from you). Step on and it carries you up and forward.
+   **Escalator (Down)** works the same: face travel direction (downhill) while
+   placing, on a descending diagonal. The steps and handrails visually ascend
+   the right way — if they don't, you placed it while facing across the slope.
+7. **Going underground?** Use the **Tunnel Maker** on a wall: each use bores a
+   6-wide, 6-high, 6-deep tunnel in the direction you face — digging out rock
+   and automatically lining the floor, walls and ceiling with cobblestone
+   wherever it would otherwise be open air or water. It has 2 uses in survival
+   (unlimited in creative).
 
 ## Naming stations & lines
 
