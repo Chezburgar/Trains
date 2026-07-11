@@ -144,6 +144,7 @@ function init() {
   for (const v of loadReg(K_VTRAINS)) {
     const line = lineCache.get(v.k);
     if (!line || !line.done) continue; // line gone/changed — drop the train
+    if (v.dir === -1) continue; // pre-1.2 returning train — retire it
     v._line = line;
     v.born = system.currentTick; // ages restart with the session
     vtrains.push(v);
@@ -163,7 +164,7 @@ function persist(tick) {
   if (tick % 60 === 0) {
     saveReg(
       K_VTRAINS,
-      vtrains.map((v) => ({ id: v.id, k: v.k, p: v.p, dir: v.dir, dw: v.dw, ns: v.ns }))
+      vtrains.map((v) => ({ id: v.id, k: v.k, p: v.p, dw: v.dw, ns: v.ns, fin: v.fin ?? 0 }))
     );
   }
 }
@@ -332,10 +333,10 @@ function posAt(line, p) {
   return { x: line.sx + 0.5, z: line.sz + 0.5, dx: line.cdx || 1, dz: line.cdz };
 }
 
-// Last station name in the direction of travel — the "toward X" destination.
-function destOf(line, dir) {
+// The last station on the line — every train's final stop / destination.
+function destOf(line) {
   if (line.st.length === 0) return undefined;
-  const s = dir > 0 ? line.st[line.st.length - 1] : line.st[0];
+  const s = line.st[line.st.length - 1];
   return stationName(line.d, s[1], line.y, s[2]);
 }
 
@@ -365,7 +366,7 @@ function calloutRiders(v, msg) {
 
 function simPosOf(v) {
   const g = posAt(v._line, v.p);
-  return { x: g.x, y: v._line.y + 0.3, z: g.z, dx: g.dx * v.dir, dz: g.dz * v.dir };
+  return { x: g.x, y: v._line.y + 0.3, z: g.z, dx: g.dx, dz: g.dz };
 }
 
 function removeVTrain(v) {
@@ -386,16 +387,16 @@ function spawnVTrain(dep, line, tick) {
     id: nextVId++,
     k: line.k,
     p: 0,
-    dir: 1,
     dw: 0,
     ns: 0,
+    fin: 0,
     born: tick,
     _line: line
   };
   vtrains.push(v);
   const dim = dimOf(line.d);
   if (dim) {
-    const dest = destOf(line, 1);
+    const dest = destOf(line);
     const lname = dep.n ? `§e${dep.n}§b ` : "";
     const toward = dest ? ` toward §e${dest}` : "";
     const loc = { x: line.sx + 0.5, y: line.y + 1, z: line.sz + 0.5 };
@@ -409,15 +410,13 @@ function spawnVTrain(dep, line, tick) {
 
 function announceDeparture(v) {
   const line = v._line;
-  if (v.ns >= 0 && v.ns < line.st.length) {
+  if (v.ns < line.st.length) {
     const s = line.st[v.ns];
-    calloutRiders(v, `§6🚉 Next station: §e${stationName(line.d, s[1], line.y, s[2])}`);
+    const name = stationName(line.d, s[1], line.y, s[2]);
+    const final = v.ns === line.st.length - 1;
+    calloutRiders(v, final ? `§6🚉 Next and final station: §e${name}` : `§6🚉 Next station: §e${name}`);
   } else {
-    const dest = v.dir > 0 && (line.endDepot || line.loop) ? undefined : destOf(line, v.dir);
-    calloutRiders(
-      v,
-      dest ? `§6🚉 This train terminates after §e${dest}` : "§6🚉 Approaching the end of the line"
-    );
+    calloutRiders(v, "§6🚉 Approaching the end of the line");
   }
   const dim = dimOf(line.d);
   if (dim) {
@@ -440,24 +439,38 @@ function tickVTrain(v, tick) {
   if (v.dw > 0) {
     v.dw--;
     if (v.dw === 0) {
-      v.ns += v.dir;
+      if (v.fin) {
+        // dwell at the final station is over — train goes out of service
+        calloutRiders(v, "§6🚉 This train is now out of service. Thanks for riding!");
+        const dim = dimOf(line.d);
+        if (dim) announce(dim, simPosOf(v), 16, "§7Train out of service");
+        removeVTrain(v);
+        return;
+      }
+      v.ns += 1;
       announceDeparture(v);
     }
     syncEntity(v);
     return;
   }
 
-  v.p += SPEED * v.dir;
+  v.p += SPEED;
 
   // station arrival
-  if (v.ns >= 0 && v.ns < line.st.length) {
+  if (v.ns < line.st.length) {
     const s = line.st[v.ns];
-    const reached = v.dir > 0 ? v.p >= s[0] : v.p <= s[0];
-    if (reached) {
+    if (v.p >= s[0]) {
       v.p = s[0];
       v.dw = DWELL_TICKS;
       const name = stationName(line.d, s[1], line.y, s[2]);
-      calloutRiders(v, `§6🚉 This station is: §e${name}`);
+      const final = v.ns === line.st.length - 1;
+      if (final) v.fin = 1; // delete after this stop instead of continuing
+      calloutRiders(
+        v,
+        final
+          ? `§6🚉 This is §e${name}§6 — the final stop. All change, please!`
+          : `§6🚉 This station is: §e${name}`
+      );
       const dim = dimOf(line.d);
       if (dim) {
         const sp = simPosOf(v);
@@ -471,25 +484,12 @@ function tickVTrain(v, tick) {
     }
   }
 
-  const total = geomOf(line).total;
-  if (v.dir > 0 && v.p >= total) {
-    if (line.endDepot || line.loop) {
-      calloutRiders(v, "§6🚉 This is the last stop — thanks for riding!");
-      const dim = dimOf(line.d);
-      if (dim) announce(dim, simPosOf(v), 20, "§eTrain arrived — end of the line");
-      removeVTrain(v);
-      return;
-    }
-    // plain dead end: run the service back
-    v.p = total;
-    v.dir = -1;
-    v.ns = line.st.length - 1;
-    // don't double-stop at a station sitting right at the buffer
-    if (v.ns >= 0 && Math.abs(line.st[v.ns][0] - v.p) < 0.5) v.ns--;
-    calloutRiders(v, "§6🚉 End of track — this train now returns the other way");
-  } else if (v.dir < 0 && v.p <= 0) {
-    calloutRiders(v, "§6🚉 This is the last stop — thanks for riding!");
-    removeVTrain(v); // back at its origin depot
+  // ran out of track (line with no stations, loop, or opposite depot)
+  if (v.p >= geomOf(line).total) {
+    calloutRiders(v, "§6🚉 This is the end of the line — thanks for riding!");
+    const dim = dimOf(line.d);
+    if (dim) announce(dim, simPosOf(v), 20, "§eTrain arrived — end of the line");
+    removeVTrain(v);
     return;
   }
 
@@ -530,7 +530,7 @@ function syncEntity(v) {
       return;
     }
     e.setDynamicProperty("vid", v.id);
-    const dest = v.dir > 0 && (line.endDepot || line.loop) ? destOf(line, 1) : destOf(line, v.dir);
+    const dest = destOf(line);
     const lname = lineNameOf(v.k);
     e.nameTag = dest ? `${lname ? lname + " — " : ""}to ${dest}` : lname ?? "Train";
     v._entity = e;
@@ -716,7 +716,7 @@ function depotInteract(player, block) {
     );
   } else {
     player.sendMessage(
-      `§b${lname} — ${line.len} blocks, ${line.st.length} station(s)${line.loop ? ", loop" : line.endDepot ? ", ends at a depot" : ", out-and-back"}. Trains every ${(ent.i ?? DEFAULT_INTERVAL) / 20}s, next in ${secs}s, ${active} running now.`
+      `§b${lname} — ${line.len} blocks, ${line.st.length} station(s)${line.loop ? ", loop" : line.endDepot ? ", ends at a depot" : ""}. Trains every ${(ent.i ?? DEFAULT_INTERVAL) / 20}s, next in ${secs}s, ${active} running now.`
     );
   }
   player.sendMessage(

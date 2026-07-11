@@ -47,9 +47,12 @@ Everything is in the Creative inventory, or use `/give @s trains:track_planner` 
    trains should stop. Build your platform beside it.
 3. **Add a depot.** Place a **Train Depot** block *in* the track line at one
    end, facing down the line (green arrow = departure direction). A train
-   departs every 60 seconds by default. Put a depot at *each* end for
-   bidirectional service — trains despawn when they reach the opposite depot,
-   and reverse automatically at plain dead ends.
+   departs every 60 seconds by default. Trains run **one way**: the last
+   station on the line is the final stop — the train opens its doors there,
+   then goes out of service and disappears. You set the final stop simply by
+   which station is furthest along the line. (A line with no stations runs to
+   the end of the track and disappears there.) For service in both directions,
+   put a depot at each end.
    - **Interact** with the depot to see the line's status.
    - **Sneak + interact** to cycle the departure interval: 30s / 60s / 2min / 5min.
 4. **Let the depot survey the line.** The depot walks the track once and
@@ -86,9 +89,11 @@ When a train pulls into a station it dwells for 6 seconds — walk up and
 
 While riding you get conductor callouts in chat and on the action bar:
 
-- `Next station: Glenmont` when departing each stop
+- `Next station: Glenmont` when departing each stop (`Next and final station:`
+  as you approach the last one)
 - `This station is: Glenmont` on arrival
-- `This is the last stop — thanks for riding!` at the terminus
+- `This is Glenmont — the final stop. All change, please!` at the last station,
+  then the train goes out of service and disappears
 
 Players on the platform see `Train now boarding at Glenmont` / `Doors closing`.
 
