@@ -78,6 +78,29 @@ def tex_track():
     write_png(os.path.join(RP, "textures/blocks/track.png"), px)
 
 
+def tex_track_corner():
+    """Quarter-turn rails connecting the north edge to the east edge
+    (arc centred on the NE corner), matching the straight rail offsets."""
+    import math
+    px = canvas(16, 16)
+    gravel_base(px)
+    # curved ties (radial dashes between the rails)
+    for y in range(16):
+        for x in range(16):
+            r = math.hypot(15.5 - (x + 0.5), y + 0.5 - 0.5)
+            if 5.5 < r < 10.5 and int(math.degrees(math.atan2(y + 0.5, 15.5 - x - 0.5)) / 18) % 2 == 0:
+                d = random.randint(-8, 8)
+                px[y][x] = (clamp(92 + d), clamp(70 + d), clamp(48 + d), 255)
+    # rails as two arcs (radii ~4 and ~11.5 from the NE corner)
+    for y in range(16):
+        for x in range(16):
+            r = math.hypot(15.5 - (x + 0.5), y + 0.5)
+            if 3.2 <= r <= 5.0 or 10.7 <= r <= 12.5:
+                mid = (3.2 <= r <= 4.1) or (10.7 <= r <= 11.6)
+                px[y][x] = (176, 180, 188, 255) if mid else (140, 144, 152, 255)
+    write_png(os.path.join(RP, "textures/blocks/track_corner.png"), px)
+
+
 def tex_station_track():
     px = canvas(16, 16)
     gravel_base(px)
@@ -336,6 +359,7 @@ def pack_icon(path):
 
 if __name__ == "__main__":
     tex_track()
+    tex_track_corner()
     tex_station_track()
     tex_depot_track()
     tex_platform()

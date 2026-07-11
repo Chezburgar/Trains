@@ -206,7 +206,21 @@ function lineNameOf(key) {
 // Runs incrementally — pauses at unloaded chunks and resumes later, so a
 // long line only ever needs to be loaded ONCE (while you build/ride it).
 // ---------------------------------------------------------------------------
-function newLineFor(dep) {
+// Find the direction actual track leaves the depot — never trust facing alone.
+// Preference order: block facing, its opposite, left, right; each checked at
+// the same level and one block up/down.
+function pickDepotDir(dim, dep) {
+  const pref = { x: dep.fx ?? 0, z: dep.fz ?? 1 };
+  for (const d of [pref, opposite(pref), leftOf(pref), rightOf(pref)]) {
+    for (const dy of [0, 1, -1]) {
+      const b = safeBlock(dim, { x: dep.x + d.x, y: dep.y + dy, z: dep.z + d.z });
+      if (b && TRACK_TYPES.has(b.typeId)) return d;
+    }
+  }
+  return pref;
+}
+
+function newLineFor(dep, dir) {
   return {
     k: posKey(dep.d, dep),
     d: dep.d,
@@ -216,9 +230,9 @@ function newLineFor(dep) {
     cx: dep.x,
     cy: dep.y,
     cz: dep.z,
-    cdx: dep.fx ?? 0,
+    cdx: dir ? dir.x : dep.fx ?? 0,
     cdy: 0,
-    cdz: dep.fz ?? 1,
+    cdz: dir ? dir.z : dep.fz ?? 1,
     wp: [[dep.x, dep.y, dep.z]],
     st: [], // [[distance, x, y, z], ...]
     len: 0,
@@ -247,29 +261,38 @@ function surveyStep(line, budget) {
       const b = safeBlock(dim, { x: line.cx + ox, y: line.cy + oy, z: line.cz + oz });
       return b === undefined ? null : b.typeId;
     };
-    // straight ahead: level, then ramp up, then ramp down
-    const sT = cellT(d.x, 0, d.z);
-    const uT = cellT(d.x, 1, d.z);
-    const dT = cellT(d.x, -1, d.z);
-    if (sT === null || uT === null || dT === null) return; // unloaded — resume later
+    // probe a direction at the same level, one up, one down
+    const probe = (dd) => {
+      for (const dy of [0, 1, -1]) {
+        const t = cellT(dd.x, dy, dd.z);
+        if (t === null) return "unloaded";
+        if (TRACK_TYPES.has(t)) return dy;
+      }
+      return undefined;
+    };
+    const s = probe(d);
+    if (s === "unloaded") return; // resume later
     let nd = null;
     let ny = 0;
-    if (TRACK_TYPES.has(sT)) nd = d;
-    else if (TRACK_TYPES.has(uT)) {
+    if (s !== undefined) {
       nd = d;
-      ny = 1;
-    } else if (TRACK_TYPES.has(dT)) {
-      nd = d;
-      ny = -1;
+      ny = s;
     } else {
       const L = leftOf(d);
       const R = rightOf(d);
-      const lT = cellT(L.x, 0, L.z);
-      const rT = cellT(R.x, 0, R.z);
-      if (lT === null || rT === null) return; // unloaded — resume later
-      const lOk = TRACK_TYPES.has(lT);
-      const rOk = TRACK_TYPES.has(rT);
-      nd = rOk && !lOk ? R : lOk && !rOk ? L : rOk ? R : null;
+      const ls = probe(L);
+      const rs = probe(R);
+      if (ls === "unloaded" || rs === "unloaded") return; // resume later
+      if (rs !== undefined && ls === undefined) {
+        nd = R;
+        ny = rs;
+      } else if (ls !== undefined && rs === undefined) {
+        nd = L;
+        ny = ls;
+      } else if (rs !== undefined) {
+        nd = R;
+        ny = rs;
+      }
     }
     if (!nd) {
       finishLine(line); // dead end terminus
@@ -306,7 +329,10 @@ function surveyStep(line, budget) {
 }
 
 function resetLine(dep) {
-  const line = newLineFor(dep);
+  let dir;
+  const dim = dimOf(dep.d);
+  if (dim && safeBlock(dim, dep)) dir = pickDepotDir(dim, dep);
+  const line = newLineFor(dep, dir);
   line._resetAt = system.currentTick;
   lineCache.set(line.k, line);
   linesDirty = true;
@@ -777,13 +803,20 @@ function depotInteract(player, block) {
   const next = depotNext.get(key);
   const secs = next !== undefined ? Math.max(0, Math.ceil((next - system.currentTick) / 20)) : "?";
   const active = vtrains.filter((v) => v.k === key).length;
-  if (!line || !line.done) {
+  if (line && line.done && line.len < MIN_LINE_LEN) {
     player.sendMessage(
-      `§b${lname} — §esurveying the route (${line?.len ?? 0} blocks so far). §7Walk or fly along the track once so it can finish.`
+      `§c${lname} — no usable track found from this depot (checked all four directions, level and one block up/down). Lay railway track leading away from this block; it rescans automatically.`
+    );
+  } else if (!line || !line.done) {
+    player.sendMessage(
+      `§b${lname} — §esurveying: ${line?.len ?? 0} blocks scanned, currently at ${line?.cx}, ${line?.cy}, ${line?.cz}. §7If it stays stuck, the track has a gap there (or that area needs to be loaded once — walk the line).`
     );
   } else {
+    const a = line.wp[0];
+    const b2 = line.wp[1] ?? [line.cx, line.cy, line.cz];
+    const hd = cardinalOf({ x: Math.sign(b2[0] - a[0]), z: Math.sign(b2[2] - a[2]) });
     player.sendMessage(
-      `§b${lname} — ${line.len} blocks, ${line.st.length} station(s)${line.loop ? ", loop" : line.endDepot ? ", ends at a depot" : ""}. Trains every ${(ent.i ?? DEFAULT_INTERVAL) / 20}s, next in ${secs}s, ${active} running now.`
+      `§a${lname} — READY. §b${line.len} blocks heading ${hd}, ${line.st.length} station(s)${line.loop ? ", loop" : line.endDepot ? ", ends at a depot" : ""}. Trains every ${(ent.i ?? DEFAULT_INTERVAL) / 20}s, next in ${secs}s, ${active} running now.`
     );
   }
   player.sendMessage(
@@ -957,11 +990,17 @@ function screenText(s, tick) {
   }
 
   let dep = Infinity;
+  let notReady = false;
   for (const [key, next] of depotNext) {
     const bar = key.indexOf("|");
     if (key.slice(0, bar) !== s.d) continue;
     const [x, , z] = key.slice(bar + 1).split(",").map(Number);
     if (Math.hypot(x + 0.5 - c.x, z + 0.5 - c.z) > 96) continue;
+    const line = lineCache.get(key);
+    if (!line || !line.done || line.len < MIN_LINE_LEN) {
+      notReady = true; // don't show a countdown that can't deliver a train
+      continue;
+    }
     const secs = (next - tick) / 20;
     if (secs >= 0 && secs < dep) dep = secs;
   }
@@ -971,6 +1010,7 @@ function screenText(s, tick) {
   else if (bestEta < Infinity) lines.push(`§eTrain arriving in ~${Math.max(1, Math.ceil(bestEta))}s`);
   else lines.push("§7No trains approaching");
   if (dep < Infinity) lines.push(`§7Next departure: ${Math.ceil(dep)}s`);
+  else if (notReady) lines.push("§cLine not ready — tap the depot for details");
   else if (bestEta === Infinity) lines.push("§8(no depot within range)");
   return lines.join("\n");
 }
@@ -1078,11 +1118,80 @@ function tryPlaceSegment(player, base) {
     }
   }
   if (placed > 0) {
+    for (let f = -1; f <= 3; f++) {
+      reshapeTrack(dim, bl.x + d.x * f, y, bl.z + d.z * f);
+      reshapeTrack(dim, bl.x + d.x * f, y - 1, bl.z + d.z * f);
+      reshapeTrack(dim, bl.x + d.x * f, y + 1, bl.z + d.z * f);
+    }
     invalidateLines(dim.id, { x: bl.x, y, z: bl.z });
     player.onScreenDisplay.setActionBar(`§aTrack segment laid (3x3, heading ${cardinalOf(d)})`);
     try {
       dim.playSound("dig.stone", { x: bl.x + 0.5, y: y + 0.5, z: bl.z + 0.5 });
     } catch {}
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Track auto-shaping: plain track blocks pick straight/corner/slope shapes
+// from their neighbours, like vanilla rails.
+// ---------------------------------------------------------------------------
+function reshapeTrack(dim, x, y, z) {
+  const b = safeBlock(dim, { x, y, z });
+  if (!b || b.typeId !== "trains:track") return;
+  const conns = [];
+  for (const [name, d] of Object.entries(DIRS)) {
+    for (const dy of [0, 1, -1]) {
+      const nb = safeBlock(dim, { x: x + d.x, y: y + dy, z: z + d.z });
+      if (nb && TRACK_TYPES.has(nb.typeId)) {
+        conns.push({ name, d, dy });
+        break;
+      }
+    }
+  }
+  let shape = "straight";
+  let card = null;
+  const up = conns.find((c) => c.dy === 1);
+  if (up) {
+    shape = "slope"; // ramp ascends toward the raised neighbour
+    card = up.name;
+  } else if (
+    conns.length === 2 &&
+    (conns[0].d.x !== -conns[1].d.x || conns[0].d.z !== -conns[1].d.z)
+  ) {
+    shape = "corner"; // base shape connects <card> and right-of-<card>
+    const set = new Set([conns[0].name, conns[1].name]);
+    for (const [name, d] of Object.entries(DIRS)) {
+      if (set.has(name) && set.has(cardinalOf(rightOf(d)))) {
+        card = name;
+        break;
+      }
+    }
+    if (!card) shape = "straight";
+  }
+  if (!card && conns.length > 0) card = conns[0].name;
+  if (!card) return; // isolated block: leave as placed
+  try {
+    const cur = b.permutation;
+    if (
+      cur.getState("trains:shape") === shape &&
+      cur.getState("minecraft:cardinal_direction") === card
+    ) {
+      return;
+    }
+    b.setPermutation(
+      BlockPermutation.resolve("trains:track", {
+        "minecraft:cardinal_direction": card,
+        "trains:shape": shape
+      })
+    );
+  } catch {}
+}
+
+function reshapeAround(dim, loc) {
+  for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    for (const dy of [-1, 0, 1]) {
+      reshapeTrack(dim, loc.x + dx, loc.y + dy, loc.z + dz);
+    }
   }
 }
 
@@ -1199,7 +1308,10 @@ world.afterEvents.playerPlaceBlock.subscribe((ev) => {
   if (t === "trains:depot_track") registerDepot(ev.block);
   else if (t === "trains:arrival_screen") registerScreen(ev.block);
   else if (t === "trains:station_track") registerStation(ev.block);
-  if (TRACK_TYPES.has(t)) invalidateLines(ev.block.dimension.id, ev.block.location);
+  if (TRACK_TYPES.has(t)) {
+    reshapeAround(ev.block.dimension, ev.block.location);
+    invalidateLines(ev.block.dimension.id, ev.block.location);
+  }
 });
 
 world.afterEvents.playerBreakBlock.subscribe((ev) => {
@@ -1207,7 +1319,10 @@ world.afterEvents.playerBreakBlock.subscribe((ev) => {
   if (t === "trains:depot_track") unregisterDepot(ev.dimension.id, ev.block.location);
   else if (t === "trains:arrival_screen") unregisterScreen(ev.dimension.id, ev.block.location);
   else if (t === "trains:station_track") unregisterStation(ev.dimension.id, ev.block.location);
-  if (TRACK_TYPES.has(t)) invalidateLines(ev.dimension.id, ev.block.location);
+  if (TRACK_TYPES.has(t)) {
+    reshapeAround(ev.dimension, ev.block.location);
+    invalidateLines(ev.dimension.id, ev.block.location);
+  }
 });
 
 world.afterEvents.playerInteractWithBlock.subscribe((ev) => {

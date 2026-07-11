@@ -4,6 +4,9 @@
     "description": {
       "identifier": "trains:track",
       "menu_category": { "category": "construction" },
+      "states": {
+        "trains:shape": ["straight", "corner", "slope"]
+      },
       "traits": {
         "minecraft:placement_direction": {
           "enabled_states": ["minecraft:cardinal_direction"],
@@ -24,12 +27,47 @@
     },
     "permutations": [
       {
-        "condition": "q.block_state('minecraft:cardinal_direction') == 'east'",
+        "condition": "q.block_state('trains:shape') == 'straight' && (q.block_state('minecraft:cardinal_direction') == 'east' || q.block_state('minecraft:cardinal_direction') == 'west')",
         "components": { "minecraft:transformation": { "rotation": [0, 90, 0] } }
       },
       {
-        "condition": "q.block_state('minecraft:cardinal_direction') == 'west'",
+        "condition": "q.block_state('trains:shape') == 'corner'",
+        "components": {
+          "minecraft:material_instances": {
+            "*": { "texture": "trains_track_corner", "render_method": "opaque" }
+          }
+        }
+      },
+      {
+        "condition": "q.block_state('trains:shape') == 'corner' && q.block_state('minecraft:cardinal_direction') == 'east'",
         "components": { "minecraft:transformation": { "rotation": [0, 90, 0] } }
+      },
+      {
+        "condition": "q.block_state('trains:shape') == 'corner' && q.block_state('minecraft:cardinal_direction') == 'south'",
+        "components": { "minecraft:transformation": { "rotation": [0, 180, 0] } }
+      },
+      {
+        "condition": "q.block_state('trains:shape') == 'corner' && q.block_state('minecraft:cardinal_direction') == 'west'",
+        "components": { "minecraft:transformation": { "rotation": [0, 270, 0] } }
+      },
+      {
+        "condition": "q.block_state('trains:shape') == 'slope'",
+        "components": {
+          "minecraft:geometry": "geometry.trains.track_slope",
+          "minecraft:selection_box": { "origin": [-8, 0, -8], "size": [16, 14, 16] }
+        }
+      },
+      {
+        "condition": "q.block_state('trains:shape') == 'slope' && q.block_state('minecraft:cardinal_direction') == 'east'",
+        "components": { "minecraft:transformation": { "rotation": [0, 90, 0] } }
+      },
+      {
+        "condition": "q.block_state('trains:shape') == 'slope' && q.block_state('minecraft:cardinal_direction') == 'south'",
+        "components": { "minecraft:transformation": { "rotation": [0, 180, 0] } }
+      },
+      {
+        "condition": "q.block_state('trains:shape') == 'slope' && q.block_state('minecraft:cardinal_direction') == 'west'",
+        "components": { "minecraft:transformation": { "rotation": [0, 270, 0] } }
       }
     ]
   }

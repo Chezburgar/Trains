@@ -5,6 +5,7 @@
   "num_mip_levels": 4,
   "texture_data": {
     "trains_track": { "textures": "textures/blocks/track" },
+    "trains_track_corner": { "textures": "textures/blocks/track_corner" },
     "trains_station_track": { "textures": "textures/blocks/station_track" },
     "trains_depot_track": { "textures": "textures/blocks/depot_track" },
     "trains_platform": { "textures": "textures/blocks/platform" },

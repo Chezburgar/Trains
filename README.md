@@ -47,8 +47,10 @@ Everything is in the Creative inventory, or use `/give @s trains:track_planner` 
 2. **Add stations.** Swap a centre track block for **Station Track** wherever
    trains should stop. Build your platform beside it.
 3. **Add a depot.** Place a **Train Depot** block *in* the track line at one
-   end, facing down the line (green arrow = departure direction). A train
-   departs every 60 seconds by default. Trains run **one way**: the last
+   end. The depot finds the direction the track actually leaves it
+   automatically (facing just sets the arrow), so you can't place it "wrong" —
+   tap it any time to see the line status, including exactly where a survey is
+   stuck if the track has a gap. A train departs every 60 seconds by default. Trains run **one way**: the last
    station on the line is the final stop — the train opens its doors there,
    then goes out of service and disappears. You set the final stop simply by
    which station is furthest along the line. (A line with no stations runs to
@@ -118,8 +120,11 @@ Players on the platform see `Train now boarding at Glenmont` / `Doors closing`.
 
 - Trains cruise at 12 blocks/sec.
 - Track turns at corners automatically (at T-junctions trains bear right) and
-  climbs/descends 45° ramps (1 up or down per block forward). Turns must be on
-  the flat — finish the ramp, then turn.
+  climbs/descends 45° ramps (1 up or down per block forward). Plain track
+  blocks reshape themselves like vanilla rails: curved rails at corners,
+  stepped ramps on slopes.
+- Arrival screens show "Line not ready — tap the depot" instead of a countdown
+  when the nearest depot's route hasn't finished surveying.
 - Editing track only re-surveys lines that pass near the edit; other lines
   keep running.
 - Trains **do** keep running through unloaded chunks (the simulation is

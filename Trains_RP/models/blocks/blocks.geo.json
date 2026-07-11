@@ -33,6 +33,72 @@
     },
     {
       "description": {
+        "identifier": "geometry.trains.track_slope",
+        "texture_width": 16,
+        "texture_height": 16,
+        "visible_bounds_width": 2,
+        "visible_bounds_height": 2,
+        "visible_bounds_offset": [0, 0.5, 0]
+      },
+      "bones": [
+        {
+          "name": "ramp",
+          "pivot": [0, 0, 0],
+          "cubes": [
+            {
+              "origin": [-8, 0, 4],
+              "size": [16, 2, 4],
+              "uv": {
+                "up": { "uv": [0, 12], "uv_size": [16, 4] },
+                "down": { "uv": [0, 12], "uv_size": [16, 4] },
+                "north": { "uv": [0, 14], "uv_size": [16, 2] },
+                "south": { "uv": [0, 14], "uv_size": [16, 2] },
+                "east": { "uv": [0, 14], "uv_size": [4, 2] },
+                "west": { "uv": [0, 14], "uv_size": [4, 2] }
+              }
+            },
+            {
+              "origin": [-8, 0, 0],
+              "size": [16, 6, 4],
+              "uv": {
+                "up": { "uv": [0, 8], "uv_size": [16, 4] },
+                "down": { "uv": [0, 8], "uv_size": [16, 4] },
+                "north": { "uv": [0, 10], "uv_size": [16, 6] },
+                "south": { "uv": [0, 10], "uv_size": [16, 6] },
+                "east": { "uv": [0, 10], "uv_size": [4, 6] },
+                "west": { "uv": [0, 10], "uv_size": [4, 6] }
+              }
+            },
+            {
+              "origin": [-8, 0, -4],
+              "size": [16, 10, 4],
+              "uv": {
+                "up": { "uv": [0, 4], "uv_size": [16, 4] },
+                "down": { "uv": [0, 4], "uv_size": [16, 4] },
+                "north": { "uv": [0, 6], "uv_size": [16, 10] },
+                "south": { "uv": [0, 6], "uv_size": [16, 10] },
+                "east": { "uv": [0, 6], "uv_size": [4, 10] },
+                "west": { "uv": [0, 6], "uv_size": [4, 10] }
+              }
+            },
+            {
+              "origin": [-8, 0, -8],
+              "size": [16, 14, 4],
+              "uv": {
+                "up": { "uv": [0, 0], "uv_size": [16, 4] },
+                "down": { "uv": [0, 0], "uv_size": [16, 4] },
+                "north": { "uv": [0, 2], "uv_size": [16, 14] },
+                "south": { "uv": [0, 2], "uv_size": [16, 14] },
+                "east": { "uv": [0, 2], "uv_size": [4, 14] },
+                "west": { "uv": [0, 2], "uv_size": [4, 14] }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": {
         "identifier": "geometry.trains.screen_panel",
         "texture_width": 32,
         "texture_height": 32,
