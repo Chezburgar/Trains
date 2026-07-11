@@ -3,10 +3,14 @@
   "minecraft:block": {
     "description": {
       "identifier": "trains:depot_track",
-      "menu_category": { "category": "construction" },
+      "menu_category": {
+        "category": "construction"
+      },
       "traits": {
         "minecraft:placement_direction": {
-          "enabled_states": ["minecraft:cardinal_direction"],
+          "enabled_states": [
+            "minecraft:cardinal_direction"
+          ],
           "y_rotation_offset": 180
         }
       }
@@ -14,26 +18,79 @@
     "components": {
       "minecraft:geometry": "geometry.trains.track_plate",
       "minecraft:material_instances": {
-        "*": { "texture": "trains_depot_track", "render_method": "opaque" }
+        "*": {
+          "texture": "trains_depot_track",
+          "render_method": "opaque"
+        }
       },
-      "minecraft:collision_box": { "origin": [-8, 0, -8], "size": [16, 2, 16] },
-      "minecraft:selection_box": { "origin": [-8, 0, -8], "size": [16, 2, 16] },
-      "minecraft:destructible_by_mining": { "seconds_to_destroy": 0.8 },
-      "minecraft:destructible_by_explosion": { "explosion_resistance": 12 },
+      "minecraft:collision_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          2,
+          16
+        ]
+      },
+      "minecraft:selection_box": {
+        "origin": [
+          -8,
+          0,
+          -8
+        ],
+        "size": [
+          16,
+          2,
+          16
+        ]
+      },
+      "minecraft:destructible_by_mining": {
+        "seconds_to_destroy": 0.8
+      },
+      "minecraft:destructible_by_explosion": {
+        "explosion_resistance": 12
+      },
       "minecraft:map_color": "#3CB35A"
     },
     "permutations": [
       {
         "condition": "q.block_state('minecraft:cardinal_direction') == 'east'",
-        "components": { "minecraft:transformation": { "rotation": [0, 90, 0] } }
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              270,
+              0
+            ]
+          }
+        }
       },
       {
         "condition": "q.block_state('minecraft:cardinal_direction') == 'south'",
-        "components": { "minecraft:transformation": { "rotation": [0, 180, 0] } }
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              180,
+              0
+            ]
+          }
+        }
       },
       {
         "condition": "q.block_state('minecraft:cardinal_direction') == 'west'",
-        "components": { "minecraft:transformation": { "rotation": [0, 270, 0] } }
+        "components": {
+          "minecraft:transformation": {
+            "rotation": [
+              0,
+              90,
+              0
+            ]
+          }
+        }
       }
     ]
   }
