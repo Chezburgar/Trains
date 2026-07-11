@@ -5,6 +5,12 @@ lines, and trains automatically depart on a schedule, stop at stations so player
 can board, and run to the end of the line. Includes live arrival screens and
 escalators for building proper stations.
 
+Trains are **simulated virtually** — once a line has been surveyed, its trains
+keep running on time even while the chunks are unloaded. A physical, rideable
+train only appears when a player is nearby, exactly where the simulation says
+it should be. Stations and lines can be **named**, and trains make conductor
+**callouts** to riders: *"Next station: Glenmont"*.
+
 **No experimental toggles required** — everything uses stable APIs.
 
 ## Install
@@ -44,32 +50,65 @@ Everything is in the Creative inventory, or use `/give @s trains:track_planner` 
    departs every 60 seconds by default. Put a depot at *each* end for
    bidirectional service — trains despawn when they reach the opposite depot,
    and reverse automatically at plain dead ends.
-   - **Interact** with the depot to see its status.
+   - **Interact** with the depot to see the line's status.
    - **Sneak + interact** to cycle the departure interval: 30s / 60s / 2min / 5min.
-4. **Hang arrival screens.** Place an **Arrival Screen** on a wall facing the
-   platform. It shows floating live text: `Train arriving in ~12s`,
-   `>> NOW BOARDING <<`, and the next scheduled departure.
-5. **Add escalators.** Place **Escalator (Up)** blocks in an ascending diagonal
+4. **Let the depot survey the line.** The depot walks the track once and
+   memorizes the route (interact with it to watch progress). If the line spans
+   unloaded chunks, just walk/fly/ride along it once so the survey can finish.
+   **After that, trains run on schedule forever — even in unloaded chunks.**
+   Editing the track triggers an automatic re-survey.
+5. **Hang arrival screens.** Place an **Arrival Screen** on a wall facing the
+   platform. It shows floating live text: the station's name, `Train arriving
+   in ~12s`, `>> NOW BOARDING <<`, and the next scheduled departure.
+6. **Add escalators.** Place **Escalator (Up)** blocks in an ascending diagonal
    line (each one a block higher, in the direction you're facing while placing);
    stepping on them carries you up. Use **Escalator (Down)** on the same slope
    shape for the way down.
 
-### Riding
+## Naming stations & lines
+
+Rename a **Name Tag** on an anvil (e.g. to `Glenmont`), then tap:
+
+- a **Station Track** block with it → names that station,
+- a **Train Depot** block with it → names that line (e.g. `Red Line`).
+
+The name tag is not consumed. No anvil handy? Stand next to the station or
+depot and run `/scriptevent trains:name Glenmont`.
+
+Names show up everywhere: arrival screens use the nearest station's name as
+their header, physical trains are labeled `Red Line — to Glenmont`, and the
+conductor uses them in callouts.
+
+## Riding & callouts
 
 When a train pulls into a station it dwells for 6 seconds — walk up and
-**interact** with it to board (8 seats). **Sneak** to get off. The train stops
-at every station and terminates at the far depot or end of the line.
+**interact** with it to board (8 seats). **Sneak** to get off.
+
+While riding you get conductor callouts in chat and on the action bar:
+
+- `Next station: Glenmont` when departing each stop
+- `This station is: Glenmont` on arrival
+- `This is the last stop — thanks for riding!` at the terminus
+
+Players on the platform see `Train now boarding at Glenmont` / `Doors closing`.
+
+## Admin commands
+
+- `/scriptevent trains:name <name>` — name the nearest station or depot (within 8 blocks)
+- `/scriptevent trains:resurvey` — force every line in your dimension to re-scan its track
+- `/scriptevent trains:clear` — remove all running trains
 
 ## Tips & limits
 
 - Lines are **flat** (one Y level). Change levels at stations with escalators.
 - Turns: track corners turn trains automatically; at T-junctions trains bear right.
-- Trains only run while their chunks are loaded (stay reasonably nearby, or
-  raise simulation distance).
+- Trains **do** keep running through unloaded chunks (the simulation is
+  chunk-independent once the line is surveyed) — you'll see them arrive on
+  time when you get to the platform.
 - Single track + two depots means head-on meets; like a real metro, busy lines
   work best double-tracked (one line per direction).
-- If you place depots/screens with commands or structures instead of by hand,
-  interact with them once to register them.
+- If you place depots/screens/stations with commands or structures instead of
+  by hand, interact with them once to register them.
 
 ## Repo layout / development
 

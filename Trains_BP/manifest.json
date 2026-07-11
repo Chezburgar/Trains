@@ -4,21 +4,37 @@
     "name": "Railway System [BP]",
     "description": "Metro-style railway: 3-wide tracks, scheduled boardable trains, arrival screens and escalators.",
     "uuid": "3aedbd3a-83ee-4aca-9783-1867ba22e542",
-    "version": [1, 0, 0],
-    "min_engine_version": [1, 21, 80]
+    "version": [
+      1,
+      1,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      80
+    ]
   },
   "modules": [
     {
       "type": "data",
       "uuid": "5b64d13e-d719-4a3e-9a13-48b4bce00100",
-      "version": [1, 0, 0]
+      "version": [
+        1,
+        1,
+        0
+      ]
     },
     {
       "type": "script",
       "language": "javascript",
       "uuid": "97fec7dd-fcbc-4519-b030-4a276fff9aa6",
       "entry": "scripts/main.js",
-      "version": [1, 0, 0]
+      "version": [
+        1,
+        1,
+        0
+      ]
     }
   ],
   "dependencies": [
@@ -28,7 +44,11 @@
     },
     {
       "uuid": "404ba428-de5d-4fa9-af39-032d7322e86a",
-      "version": [1, 0, 0]
+      "version": [
+        1,
+        1,
+        0
+      ]
     }
   ]
 }
