@@ -1138,37 +1138,49 @@ function tryPlaceSegment(player, base) {
 function reshapeTrack(dim, x, y, z) {
   const b = safeBlock(dim, { x, y, z });
   if (!b || b.typeId !== "trains:track") return;
-  const conns = [];
+  const isTrack = (ox, oy, oz) => {
+    const nb = safeBlock(dim, { x: x + ox, y: y + oy, z: z + oz });
+    return nb !== undefined && TRACK_TYPES.has(nb.typeId);
+  };
+
+  const flat = []; // neighbours at the same level
+  const up = []; // neighbours one block up (ramp climbs toward these)
+  let touchingSides = 0; // sides with ANY track at level or +/-1
   for (const [name, d] of Object.entries(DIRS)) {
-    for (const dy of [0, 1, -1]) {
-      const nb = safeBlock(dim, { x: x + d.x, y: y + dy, z: z + d.z });
-      if (nb && TRACK_TYPES.has(nb.typeId)) {
-        conns.push({ name, d, dy });
-        break;
-      }
-    }
+    const s = isTrack(d.x, 0, d.z);
+    const u = isTrack(d.x, 1, d.z);
+    const dn = isTrack(d.x, -1, d.z);
+    if (s) flat.push({ name, d });
+    if (u) up.push({ name, d });
+    if (s || u || dn) touchingSides++;
   }
+
   let shape = "straight";
-  let card = null;
-  const up = conns.find((c) => c.dy === 1);
-  if (up) {
-    shape = "slope"; // ramp ascends toward the raised neighbour
-    card = up.name;
-  } else if (
-    conns.length === 2 &&
-    (conns[0].d.x !== -conns[1].d.x || conns[0].d.z !== -conns[1].d.z)
-  ) {
-    shape = "corner"; // base shape connects <card> and right-of-<card>
-    const set = new Set([conns[0].name, conns[1].name]);
-    for (const [name, d] of Object.entries(DIRS)) {
-      if (set.has(name) && set.has(cardinalOf(rightOf(d)))) {
-        card = name;
-        break;
+  let card = flat[0]?.name ?? null;
+
+  if (up.length > 0) {
+    // a raised neighbour means this is a ramp up toward it
+    shape = "slope";
+    card = up[0].name;
+  } else if (flat.length === 2 && touchingSides === 2) {
+    // exactly two neighbours, both flat, nothing else touching:
+    // opposite -> straight, perpendicular -> a clean corner
+    const [a, c] = flat;
+    const opp = a.d.x === -c.d.x && a.d.z === -c.d.z;
+    if (!opp) {
+      // base corner connects <card> and right-of-<card>
+      const set = new Set([a.name, c.name]);
+      for (const [name, d] of Object.entries(DIRS)) {
+        if (set.has(name) && set.has(cardinalOf(rightOf(d)))) {
+          shape = "corner";
+          card = name;
+          break;
+        }
       }
     }
-    if (!card) shape = "straight";
   }
-  if (!card && conns.length > 0) card = conns[0].name;
+  // junctions / crossings / parallel double-track (3+ touching sides) stay straight
+
   if (!card) return; // isolated block: leave as placed
   try {
     const cur = b.permutation;
